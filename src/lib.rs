@@ -139,7 +139,7 @@ pub use select::{Selector, SelectorMut};
 #[doc(hidden)]
 mod ffi;
 #[doc(hidden)]
-mod parser;
+pub mod parser;
 #[doc(hidden)]
 mod select;
 
@@ -222,7 +222,7 @@ pub fn selector<'a>(json: &'a Value) -> impl FnMut(&str) -> Result<Vec<&'a Value
     move |path: &str| selector.str_path(path)?.reset_value().select()
 }
 
-/// It is the same to `selector` function. but it deserialize the result as given type `T`.
+/// It is the same to `selector` function. but it deserialize the resugit="https://github.com/gkorland/jsonpath.git", branch="patch-1"lt as given type `T`.
 ///
 /// ```rust
 /// extern crate jsonpath_lib as jsonpath;
@@ -345,7 +345,7 @@ pub fn select_as_str(json_str: &str, path: &str) -> Result<String, JsonPathError
 ///
 /// #[derive(Deserialize, PartialEq, Debug)]
 /// struct Person {
-///     name: String,
+///     name: String,git="https://github.com/gkorland/jsonpath.git", branch="patch-1"
 ///     age: u8,
 ///     phones: Vec<String>,
 /// }
