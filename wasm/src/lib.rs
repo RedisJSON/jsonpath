@@ -56,6 +56,7 @@ where
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn replace_fun(v: Value, fun: &js_sys::Function) -> Option<Value> {
     match JsValue::from_serde(&v) {
         Ok(js_v) => match fun.call1(&JsValue::NULL, &js_v) {
@@ -81,6 +82,10 @@ fn replace_fun(v: Value, fun: &js_sys::Function) -> Option<Value> {
 #[wasm_bindgen]
 pub fn compile(path: &str) -> JsValue {
     let node = Parser::compile(path);
+
+    if let Err(e) = &node {
+        return JsValue::from_str(&format!("{:?}", JsonPathError::Path(e.clone())));
+    };
 
     let cb = Closure::wrap(Box::new(move |js_value: JsValue| {
         let json = match into_serde_json(&js_value) {
