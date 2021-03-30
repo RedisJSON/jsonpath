@@ -223,7 +223,7 @@ pub fn selector<'a>(json: &'a Value) -> impl FnMut(&str) -> Result<Vec<&'a Value
 }
 
 /// It is the same to `selector` function. but it deserialize the result as given type `T`.
-/// 
+///
 /// ```rust
 /// extern crate jsonpath_lib as jsonpath;
 /// extern crate serde;
