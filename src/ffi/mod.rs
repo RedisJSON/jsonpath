@@ -49,7 +49,7 @@ pub extern "C" fn ffi_select_with_compiled_path(
     let json = serde_json::from_str(json_str)
         .unwrap_or_else(|_| panic!("invalid json string: {}", json_str));
 
-    let mut selector = select::Selector::default();
+    let mut selector = select::Selector::<Value>::default();
     let found = selector.compiled_path(&node).value(&json).select().unwrap();
     std::mem::forget(node);
 

@@ -142,6 +142,9 @@ mod ffi;
 pub mod parser;
 #[doc(hidden)]
 mod select;
+#[doc(hidden)]
+mod value;
+
 
 /// It is a high-order function. it compile a jsonpath and then returns a closure that has JSON as argument. if you need to reuse a jsonpath, it is good for performance.
 ///
@@ -334,7 +337,7 @@ pub fn select<'a>(json: &'a Value, path: &str) -> Result<Vec<&'a Value>, JsonPat
 /// ```
 pub fn select_as_str(json_str: &str, path: &str) -> Result<String, JsonPathError> {
     let json = serde_json::from_str(json_str).map_err(|e| JsonPathError::Serde(e.to_string()))?;
-    let ret = Selector::default().str_path(path)?.value(&json).select()?;
+    let ret = Selector::<Value>::default().str_path(path)?.value(&json).select()?;
     serde_json::to_string(&ret).map_err(|e| JsonPathError::Serde(e.to_string()))
 }
 
@@ -381,7 +384,7 @@ pub fn select_as<T: serde::de::DeserializeOwned>(
     path: &str,
 ) -> Result<Vec<T>, JsonPathError> {
     let json = serde_json::from_str(json_str).map_err(|e| JsonPathError::Serde(e.to_string()))?;
-    Selector::default().str_path(path)?.value(&json).select_as()
+    Selector::<Value>::default().str_path(path)?.value(&json).select_as()
 }
 
 /// Delete(= replace with null) the JSON property using the jsonpath.

@@ -1,10 +1,10 @@
-use serde_json::Value;
 use std::collections::HashSet;
+use value::{JsonValue, JsonValueType};
 
 pub(super) struct ValueWalker;
 
 impl<'a> ValueWalker {
-    pub fn all_with_num(vec: &[&'a Value], tmp: &mut Vec<&'a Value>, index: f64) {
+    pub fn all_with_num<T: JsonValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, index: f64) {
         Self::walk(vec, tmp, &|v| if v.is_array() {
             if let Some(item) = v.get(index as usize) {
                 Some(vec![item])
@@ -16,15 +16,15 @@ impl<'a> ValueWalker {
         });
     }
 
-    pub fn all_with_str(vec: &[&'a Value], tmp: &mut Vec<&'a Value>, key: &str, is_filter: bool) {
+    pub fn all_with_str<T: JsonValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, key: &str, is_filter: bool) {
         if is_filter {
-            Self::walk(vec, tmp, &|v| match v {
-                Value::Object(map) if map.contains_key(key) => Some(vec![v]),
+            Self::walk(vec, tmp, &|v| match v.getType() {
+                JsonValueType::Object(map) if map.contains_key(key) => Some(vec![v]),
                 _ => None,
             });
         } else {
-            Self::walk(vec, tmp, &|v| match v {
-                Value::Object(map) => match map.get(key) {
+            Self::walk(vec, tmp, &|v| match v.getType() {
+                JsonValueType::Object(map) => match map.get(key) {
                     Some(v) => Some(vec![v]),
                     _ => None,
                 },
@@ -33,10 +33,14 @@ impl<'a> ValueWalker {
         }
     }
 
-    pub fn all(vec: &[&'a Value], tmp: &mut Vec<&'a Value>) {
-        Self::walk(vec, tmp, &|v| match v {
-            Value::Array(vec) => Some(vec.iter().collect()),
-            Value::Object(map) => {
+    pub fn all<T: JsonValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>) {
+        Self::walk(vec, tmp, &|v| match v.getType() {
+            JsonValueType::Array(vec) => {
+                let vec = vec.as_array().unwrap();
+                Some(vec.iter().collect())
+            },
+            JsonValueType::Object(map) => {
+                let map = map.as_object().unwrap();
                 let mut tmp = Vec::new();
                 for (_, v) in map {
                     tmp.push(v);
@@ -47,24 +51,26 @@ impl<'a> ValueWalker {
         });
     }
 
-    fn walk<F>(vec: &[&'a Value], tmp: &mut Vec<&'a Value>, fun: &F) where F: Fn(&Value) -> Option<Vec<&Value>> {
+    fn walk<F, T: JsonValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, fun: &F) where F: Fn(&T) -> Option<Vec<&T>> {
         for v in vec {
-            Self::_walk(v, tmp, fun);
+            Self::_walk::<F,T>(v, tmp, fun);
         }
     }
 
-    fn _walk<F>(v: &'a Value, tmp: &mut Vec<&'a Value>, fun: &F) where F: Fn(&Value) -> Option<Vec<&Value>> {
+    fn _walk<F, T: JsonValue>(v: &'a T, tmp: &mut Vec<&'a T>, fun: &F) where F: Fn(&T) -> Option<Vec<&T>> {
         if let Some(mut ret) = fun(v) {
             tmp.append(&mut ret);
         }
 
-        match v {
-            Value::Array(vec) => {
+        match v.getType() {
+            JsonValueType::Array(vec) => {
+                let vec = vec.as_array().unwrap();
                 for v in vec {
                     Self::_walk(v, tmp, fun);
                 }
             }
-            Value::Object(map) => {
+            JsonValueType::Object(map) => {
+                let map = map.as_object().unwrap();
                 for (_, v) in map {
                     Self::_walk(&v, tmp, fun);
                 }
@@ -73,21 +79,23 @@ impl<'a> ValueWalker {
         }
     }
 
-    pub fn walk_dedup(v: &'a Value,
-                      tmp: &mut Vec<&'a Value>,
+    pub fn walk_dedup<T: JsonValue>(v: &'a T,
+                      tmp: &mut Vec<&'a T>,
                       key: &str,
-                      visited: &mut HashSet<*const Value>, ) {
-        match v {
-            Value::Object(map) => {
+                      visited: &mut HashSet<*const T>, ) {
+        match v.getType() {
+            JsonValueType::Object(map) => {
+                let map = map.as_object().unwrap();
                 if map.contains_key(key) {
-                    let ptr = v as *const Value;
+                    let ptr = v as *const T;
                     if !visited.contains(&ptr) {
                         visited.insert(ptr);
                         tmp.push(v)
                     }
                 }
             }
-            Value::Array(vec) => {
+            JsonValueType::Array(vec) => {
+                let vec = vec.as_array().unwrap();
                 for v in vec {
                     Self::walk_dedup(v, tmp, key, visited);
                 }
