@@ -72,7 +72,6 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                         .iter()
                         .filter(|v1| match v1.get_type() {
                             DocValueType::Bool(b1) => {
-                                let b1 = b1.as_bool().unwrap();
                                 cmp_fn.cmp_bool(b1, *b2)
                             },
                             DocValueType::Object(map1) => {
@@ -194,9 +193,9 @@ impl<'a, T: DocValue> Into<ExprTerm<'a, T>> for &Vec<&'a T> {
     fn into(self) -> ExprTerm<'a, T> {
         if self.len() == 1 {
             match &self[0].get_type() {
-                DocValueType::Number(v) => return ExprTerm::Number(v.clone()),
-                DocValueType::String(v) => return ExprTerm::String(v.clone()),
-                DocValueType::Bool(v) => return ExprTerm::Bool(*v),
+                DocValueType::Number(v) => return ExprTerm::Number(*v.clone()),
+                DocValueType::String(v) => return ExprTerm::String(*v.clone()),
+                DocValueType::Bool(v) => return ExprTerm::Bool(**v),
                 _ => {}
             }
         }

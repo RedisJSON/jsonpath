@@ -5,7 +5,7 @@ use serde_json::{Number};
 use serde_json::map::Entry;
 
 use parser::*;
-use value::{DocValue, DocValueType};
+use value::{DocValue, DocMap, DocArr, DocValueType};
 
 use self::expr_term::*;
 use self::value_walker::ValueWalker;
@@ -212,7 +212,6 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
                         for k in map.keys() {
                             if let Some(v) = map.get(k) {
                                 if let DocValueType::Array(vec) = v.get_type() {
-                                    let vec = vec.as_array();
                                     _collect(&mut tmp, vec, index);
                                 }
                             }
@@ -692,7 +691,6 @@ impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
             if let Some(current) = &self.current {
                 for v in current {
                     if let DocValueType::Array(vec) = v.get_type() {
-                        let vec = vec.as_array().unwrap();
                         let from = if let Some(from) = from {
                             abs_index(*from, vec.len())
                         } else {

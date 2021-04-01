@@ -1,11 +1,11 @@
-use serde_json::Value;
+use serde_json::{Value, Number};
 use serde_json::map::Map;
 
 pub enum DocValueType<'a, V : 'a + DocValue> {
-    Null(&'a V),
-    Bool(&'a V),
-    Number(&'a V),
-    String(&'a V),
+    Null,
+    Bool(&'a bool),
+    Number(&'a Number),
+    String(&'a String),
     Array(&'a V::A),
     Object(&'a V::M),
 }
@@ -52,12 +52,12 @@ impl DocValue for Value {
     
     fn get_type(&self) -> DocValueType<Value>{
         match self {
-            Null => DocValueType::Null(self),
-            Bool => DocValueType::Bool(self),
-            Number => DocValueType::Number(self),
-            String => DocValueType::String(self),
-            Value::Array(v) => DocValueType::Array(self.as_array().unwrap()),
-            Value::Object(o) => DocValueType::Object(self.as_object().unwrap()),
+            Value::Null => DocValueType::Null,
+            Value::Bool(b) => DocValueType::Bool(b),
+            Value::Number(n) => DocValueType::Number(n),
+            Value::String(s) => DocValueType::String(s),
+            Value::Array(v) => DocValueType::Array(v),
+            Value::Object(o) => DocValueType::Object(o),
         }
     }
 
