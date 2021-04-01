@@ -5,7 +5,7 @@ use serde_json::{Number};
 use serde_json::map::Entry;
 
 use parser::*;
-use value::{JsonValue, JsonValueType};
+use value::{DocValue, DocValueType};
 
 use self::expr_term::*;
 use self::value_walker::ValueWalker;
@@ -65,9 +65,9 @@ impl fmt::Display for JsonPathError {
 }
 
 #[derive(Debug, Default)]
-struct FilterTerms<'a, T: JsonValue>(Vec<Option<ExprTerm<'a, T>>>);
+struct FilterTerms<'a, T: DocValue>(Vec<Option<ExprTerm<'a, T>>>);
 
-impl<'a, T: JsonValue> FilterTerms<'a, T> {
+impl<'a, T: DocValue> FilterTerms<'a, T> {
     fn new_filter_context(&mut self) {
         self.0.push(None);
         debug!("new_filter_context: {:?}", self.0);
@@ -98,8 +98,8 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
             let mut not_matched = HashSet::new();
             let filter_key = if let Some(FilterKey::String(key)) = fk {
                 let key_contained = &vec.iter().map(|v| 
-                    match v.getType() {
-                        JsonValueType::Object(map) if map.as_object().unwrap().contains_key(&key) => map.as_object().unwrap().get(&key).unwrap(),
+                    match v.get_type() {
+                        DocValueType::Object(map) if map.contains_key(&key) => map.get(&key).unwrap(),
                         _ => v,
                 }).collect();
                 fun(key_contained, &mut tmp, &mut not_matched)
@@ -166,9 +166,8 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
         self.filter(current, |vec, tmp, not_matched| {
             let mut visited = HashSet::new();
             for (idx, v) in vec.iter().enumerate() {
-                match v.getType() {
-                    JsonValueType::Object(map) => {
-                        let map = map.as_object().unwrap();
+                match v.get_type() {
+                    DocValueType::Object(map) => {
                         if map.contains_key(key) {
                             let ptr = *v as *const T;
                             if !visited.contains(&ptr) {
@@ -179,8 +178,7 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
                             not_matched.insert(idx);
                         }
                     }
-                    JsonValueType::Array(vec) => {
-                        let vec = vec.as_array().unwrap();
+                    DocValueType::Array(vec) => {
                         not_matched.insert(idx);
                         for v in vec {
                             ValueWalker::walk_dedup(v, tmp, key, &mut visited);
@@ -199,7 +197,7 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
     }
 
     fn collect_next_with_num(&mut self, current: &Option<Vec<&'a T>>, index: f64) -> Option<Vec<&'a T>> {
-        fn _collect<'a, T: JsonValue>(tmp: &mut Vec<&'a T>, vec: &'a [T], index: f64) {
+        fn _collect<'a, T: DocValue>(tmp: &mut Vec<&'a T>, vec: &'a [T], index: f64) {
             let index = abs_index(index as isize, vec.len());
             if let Some(v) = vec.get(index) {
                 tmp.push(v);
@@ -209,20 +207,18 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                match c.getType() {
-                    JsonValueType::Object(map) => {
-                        let map = map.as_object().unwrap();
+                match c.get_type() {
+                    DocValueType::Object(map) => {
                         for k in map.keys() {
                             if let Some(v) = map.get(k) {
-                                if let JsonValueType::Array(vec) = v.getType() {
+                                if let DocValueType::Array(vec) = v.get_type() {
                                     let vec = vec.as_array();
                                     _collect(&mut tmp, vec, index);
                                 }
                             }
                         }
                     }
-                    JsonValueType::Array(vec) => {
-                        let vec = vec.as_array().unwrap();
+                    DocValueType::Array(vec) => {
                         _collect(&mut tmp, vec, index);
                     }
                     _ => {}
@@ -249,15 +245,13 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                match c.getType() {
-                    JsonValueType::Object(map) => {
-                        let map = map.as_object().unwrap();
+                match c.get_type() {
+                    DocValueType::Object(map) => {
                         for (_, v) in map {
                             tmp.push(v)
                         }
                     }
-                    JsonValueType::Array(vec) => {
-                        let vec = vec.as_array().unwrap();
+                    DocValueType::Array(vec) => {
                         for v in vec {
                             tmp.push(v);
                         }
@@ -277,8 +271,7 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                if let JsonValueType::Object(map) = c.getType() {
-                    let map = map.as_object();
+                if let DocValueType::Object(map) = c.get_type() {
                     for key in keys {
                         if let Some(v) = map.get(key) {
                             tmp.push(v)
@@ -340,7 +333,7 @@ impl<'a, T: JsonValue> FilterTerms<'a, T> {
 }
 
 #[derive(Debug, Default)]
-pub struct Selector<'a, 'b, T: JsonValue> {
+pub struct Selector<'a, 'b, T: DocValue> {
     node: Option<Node>,
     node_ref: Option<&'b Node>,
     value: Option<&'a T>,
@@ -350,7 +343,7 @@ pub struct Selector<'a, 'b, T: JsonValue> {
     selector_filter: FilterTerms<'a, T>,
 }
 
-impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
+impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -477,7 +470,7 @@ impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
     }
 }
 
-impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
+impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
     fn visit_absolute(&mut self) {
         if self.current.is_some() {
             let mut selector = Selector::default();
@@ -698,7 +691,7 @@ impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
             let mut tmp = Vec::new();
             if let Some(current) = &self.current {
                 for v in current {
-                    if let JsonValueType::Array(vec) = v.getType() {
+                    if let DocValueType::Array(vec) = v.get_type() {
                         let vec = vec.as_array().unwrap();
                         let from = if let Some(from) = from {
                             abs_index(*from, vec.len())
@@ -738,8 +731,7 @@ impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
             let mut tmp = Vec::new();
             if let Some(current) = &self.current {
                 for v in current {
-                    if let JsonValueType::Array(vec) = v.getType() {
-                        let vec = vec.as_array().unwrap();
+                    if let DocValueType::Array(vec) = v.get_type() {
                         for i in indices {
                             if let Some(v) = vec.get(abs_index(*i, vec.len())) {
                                 tmp.push(v);
@@ -756,7 +748,7 @@ impl<'a, 'b, T: JsonValue> Selector<'a, 'b, T> {
     }
 }
 
-impl<'a, 'b, T: JsonValue> NodeVisitor for Selector<'a, 'b, T> {
+impl<'a, 'b, T: DocValue> NodeVisitor for Selector<'a, 'b, T> {
     fn visit_token(&mut self, token: &ParseToken) {
         debug!("token: {:?}, stack: {:?}", token, self.tokens);
 
@@ -791,12 +783,12 @@ impl<'a, 'b, T: JsonValue> NodeVisitor for Selector<'a, 'b, T> {
 }
 
 #[derive(Default)]
-pub struct SelectorMut<T: JsonValue> {
+pub struct SelectorMut<T: DocValue> {
     path: Option<Node>,
     value: Option<T>,
 }
 
-fn replace_value<F: FnMut(T) -> Option<T>, T: JsonValue>(
+fn replace_value<F: FnMut(T) -> Option<T>, T: DocValue>(
     mut tokens: Vec<String>,
     value: &mut T,
     fun: &mut F,
@@ -807,12 +799,11 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: JsonValue>(
     for (i, token) in tokens.drain(..).enumerate() {
         let target_once = target;
         let is_last = i == last_index;
-        let target_opt = match target_once.getType() {
-            JsonValueType::Object(obj) => {
-                let map = obj.as_object_mut().unwrap();
+        let target_opt = match target_once.get_type() {
+            DocValueType::Object(obj) => {
                 if is_last {
                     if let Entry::Occupied(mut e) = map.entry(token) {
-                        let v = e.insert(JsonValueType::Null);
+                        let v = e.insert(DocValueType::Null);
                         if let Some(res) = fun(v) {
                             e.insert(res);
                         } else {
@@ -823,11 +814,10 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: JsonValue>(
                 }
                 map.get_mut(&token)
             }
-            JsonValueType::Array(arr) => {
-                let vec = arr.as_array_mut().unwrap();
+            DocValueType::Array(arr) => {
                 if let Ok(x) = token.parse::<usize>() {
                     if is_last {
-                        let v = std::mem::replace(&mut vec[x], JsonValueType::Null);
+                        let v = std::mem::replace(&mut vec[x], DocValueType::Null);
                         if let Some(res) = fun(v) {
                             vec[x] = res;
                         } else {
@@ -851,7 +841,7 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: JsonValue>(
     }
 }
 
-impl <T: JsonValue> SelectorMut<T> {
+impl <T: DocValue> SelectorMut<T> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -871,7 +861,7 @@ impl <T: JsonValue> SelectorMut<T> {
     }
 
     fn compute_paths(&self, mut result: Vec<&T>) -> Vec<Vec<String>> {
-        fn _walk<J:JsonValue>(
+        fn _walk<J:DocValue>(
             origin: &J,
             target: &mut Vec<&J>,
             tokens: &mut Vec<String>,
@@ -895,9 +885,8 @@ impl <T: JsonValue> SelectorMut<T> {
                 }
             });
 
-            match origin.getType() {
-                JsonValueType::Array(vec) => {
-                    let vec = vec.as_array().unwrap();
+            match origin.get_type() {
+                DocValueType::Array(vec) => {
                     for (i, v) in vec.iter().enumerate() {
                         tokens.push(i.to_string());
                         if _walk(v, target, tokens, visited, visited_order) {
@@ -906,8 +895,7 @@ impl <T: JsonValue> SelectorMut<T> {
                         tokens.pop();
                     }
                 }
-                JsonValueType::Object(map) => {
-                    let map = map.as_object().unwrap();
+                DocValueType::Object(map) => {
                     for (k, v) in map {
                         tokens.push(k.clone());
                         if _walk(v, target, tokens, visited, visited_order) {
@@ -940,7 +928,7 @@ impl <T: JsonValue> SelectorMut<T> {
     }
 
     pub fn delete(&mut self) -> Result<&mut Self, JsonPathError> {
-        self.replace_with(&mut |_| Some(JsonValueType::Null))
+        self.replace_with(&mut |_| Some(DocValueType::Null))
     }
 
     pub fn remove(&mut self) -> Result<&mut Self, JsonPathError> {

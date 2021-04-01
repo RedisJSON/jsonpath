@@ -1,17 +1,17 @@
 use serde_json::{Number};
 use select::cmp::*;
 use select::{FilterKey, to_f64};
-use value::{JsonValue, JsonValueType};
+use value::{DocValue, DocValueType, DocMap, DocArr};
 
 #[derive(Debug, PartialEq)]
-pub(super) enum ExprTerm<'a, T: JsonValue> {
+pub(super) enum ExprTerm<'a, T: DocValue> {
     String(String),
     Number(Number),
     Bool(bool),
     Json(Option<Vec<&'a T>>, Option<FilterKey>, Vec<&'a T>),
 }
 
-impl<'a, T: JsonValue> ExprTerm<'a, T> {
+impl<'a, T: DocValue> ExprTerm<'a, T> {
     fn cmp<C1: Cmp, C2: Cmp>(
         &self,
         other: &Self,
@@ -38,11 +38,11 @@ impl<'a, T: JsonValue> ExprTerm<'a, T> {
                 let ret: Vec<&T> = match &other {
                     ExprTerm::String(s2) => vec1
                         .iter()
-                        .filter(|v1| match v1.getType() {
-                            JsonValueType::String(s1) => cmp_fn.cmp_string(s1, s2),
-                            JsonValueType::Object(map1) => {
+                        .filter(|v1| match v1.get_type() {
+                            DocValueType::String(s1) => cmp_fn.cmp_string(s1, s2),
+                            DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(JsonValueType::String(s1)) = map1.get(k) {
+                                    if let Some(DocValueType::String(s1)) = map1.get(k) {
                                         return cmp_fn.cmp_string(s1, s2);
                                     }
                                 }
@@ -54,11 +54,11 @@ impl<'a, T: JsonValue> ExprTerm<'a, T> {
                         .collect(),
                     ExprTerm::Number(n2) => vec1
                         .iter()
-                        .filter(|v1| match v1.getType() {
-                            JsonValueType::Number(n1) => cmp_fn.cmp_f64(to_f64(n1), to_f64(n2)),
-                            JsonValueType::Object(map1) => {
+                        .filter(|v1| match v1.get_type() {
+                            DocValueType::Number(n1) => cmp_fn.cmp_f64(to_f64(n1), to_f64(n2)),
+                            DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(JsonValueType::Number(n1)) = map1.get(k) {
+                                    if let Some(DocValueType::Number(n1)) = map1.get(k) {
                                         return cmp_fn.cmp_f64(to_f64(n1), to_f64(n2));
                                     }
                                 }
@@ -70,15 +70,14 @@ impl<'a, T: JsonValue> ExprTerm<'a, T> {
                         .collect(),
                     ExprTerm::Bool(b2) => vec1
                         .iter()
-                        .filter(|v1| match v1.getType() {
-                            JsonValueType::Bool(b1) => {
+                        .filter(|v1| match v1.get_type() {
+                            DocValueType::Bool(b1) => {
                                 let b1 = b1.as_bool().unwrap();
                                 cmp_fn.cmp_bool(b1, *b2)
                             },
-                            JsonValueType::Object(map1) => {
-                                let map1 = map1.as_object();
+                            DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(JsonValueType::Bool(b1)) = map1.get(k) {
+                                    if let Some(DocValueType::Bool(b1)) = map1.get(k) {
                                         return cmp_fn.cmp_bool(*b1, *b2);
                                     }
                                 }
@@ -107,8 +106,7 @@ impl<'a, T: JsonValue> ExprTerm<'a, T> {
                     } else {
                         let mut tmp = Vec::new();
                         for rel_value in rel {
-                            if let JsonValueType::Object(map) = rel_value.getType() {
-                                let map = map.as_object().unwrap();
+                            if let DocValueType::Object(map) = rel_value.get_type() {
                                 for map_value in map.values() {
                                     for result_value in &ret {
                                         if map_value.eq(*result_value) {
@@ -192,13 +190,13 @@ impl<'a, T: JsonValue> ExprTerm<'a, T> {
     }
 }
 
-impl<'a, T: JsonValue> Into<ExprTerm<'a, T>> for &Vec<&'a T> {
+impl<'a, T: DocValue> Into<ExprTerm<'a, T>> for &Vec<&'a T> {
     fn into(self) -> ExprTerm<'a, T> {
         if self.len() == 1 {
-            match &self[0].getType() {
-                JsonValueType::Number(v) => return ExprTerm::Number(v.clone()),
-                JsonValueType::String(v) => return ExprTerm::String(v.clone()),
-                JsonValueType::Bool(v) => return ExprTerm::Bool(*v),
+            match &self[0].get_type() {
+                DocValueType::Number(v) => return ExprTerm::Number(v.clone()),
+                DocValueType::String(v) => return ExprTerm::String(v.clone()),
+                DocValueType::Bool(v) => return ExprTerm::Bool(*v),
                 _ => {}
             }
         }
@@ -217,17 +215,17 @@ mod expr_term_inner_tests {
     fn value_vec_into() {
         let v = Value::Bool(true);
         let vec = &vec![&v];
-        let term: ExprTerm = vec.into();
+        let term: ExprTerm<Value> = vec.into();
         assert_eq!(term, ExprTerm::Bool(true));
 
         let v = Value::String("a".to_string());
         let vec = &vec![&v];
-        let term: ExprTerm = vec.into();
+        let term: ExprTerm<Value> = vec.into();
         assert_eq!(term, ExprTerm::String("a".to_string()));
 
         let v = serde_json::from_str("1.0").unwrap();
         let vec = &vec![&v];
-        let term: ExprTerm = vec.into();
+        let term: ExprTerm<Value> = vec.into();
         assert_eq!(term, ExprTerm::Number(Number::from_f64(1.0).unwrap()));
     }
 }
