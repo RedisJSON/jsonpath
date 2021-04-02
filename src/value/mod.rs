@@ -10,10 +10,10 @@ pub enum DocValueType<'a, V : 'a + DocValue> {
     Object(&'a V::M),
 }
 
-pub trait DocArr<V: DocValue> : IntoIterator{
+pub trait DocArr<V: DocValue> : IntoIterator<Item = V> {
 }
 
-pub trait DocMap<V: DocValue> : IntoIterator {
+pub trait DocMap<V: DocValue> : IntoIterator<Item = (String,V)> {
     fn get(&self, key: &str) -> Option<&V>;
     fn contains_key(&self, key: &str) -> bool;
 }
