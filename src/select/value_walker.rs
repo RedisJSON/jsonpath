@@ -41,7 +41,7 @@ impl<'a> ValueWalker {
             DocValueType::Object(map) => {
                 let mut tmp = Vec::new();
                 for (_, v) in map {
-                    tmp.push(v);
+                    tmp.push(&v);
                 }
                 Some(tmp)
             }
@@ -63,7 +63,7 @@ impl<'a> ValueWalker {
         match v.get_type() {
             DocValueType::Array(vec) => {
                 for v in vec {
-                    Self::_walk(v, tmp, fun);
+                    Self::_walk(&v, tmp, fun);
                 }
             }
             DocValueType::Object(map) => {
@@ -91,7 +91,7 @@ impl<'a> ValueWalker {
             }
             DocValueType::Array(vec) => {
                 for v in vec {
-                    Self::walk_dedup(v, tmp, key, visited);
+                    Self::walk_dedup(&v, tmp, key, visited);
                 }
             }
             _ => {}

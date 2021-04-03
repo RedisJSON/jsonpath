@@ -800,7 +800,7 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: DocValue>(
         let target_opt = match target_once.get_type() {
             DocValueType::Object(obj) => {
                 if is_last {
-                    if let Entry::Occupied(mut e) = map.entry(token) {
+                    if let Entry::Occupied(mut e) = obj.entry(token) {
                         let v = e.insert(DocValueType::Null);
                         if let Some(res) = fun(v) {
                             e.insert(res);
