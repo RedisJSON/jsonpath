@@ -1,23 +1,23 @@
 use serde_json::{Number};
 use select::cmp::*;
 use select::{FilterKey, to_f64};
-use value::{DocValue, DocValueType, DocMap, DocArr};
+use value::{JsonValue};
 
 #[derive(Debug, PartialEq)]
-pub(super) enum ExprTerm<'a, T: DocValue> {
+pub(super) enum ExprTerm<'a> {
     String(String),
     Number(Number),
     Bool(bool),
-    Json(Option<Vec<&'a T>>, Option<FilterKey>, Vec<&'a T>),
+    Json(Option<Vec<&'a JsonValue>>, Option<FilterKey>, Vec<&'a JsonValue>),
 }
 
-impl<'a, T: DocValue> ExprTerm<'a, T> {
+impl<'a> ExprTerm<'a> {
     fn cmp<C1: Cmp, C2: Cmp>(
         &self,
         other: &Self,
         cmp_fn: &C1,
         reverse_cmp_fn: &C2,
-    ) -> ExprTerm<'a, T> {
+    ) -> ExprTerm<'a> {
         match &self {
             ExprTerm::String(s1) => match &other {
                 ExprTerm::String(s2) => ExprTerm::Bool(cmp_fn.cmp_string(s1, s2)),
@@ -35,14 +35,14 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                 _ => ExprTerm::Bool(cmp_fn.default()),
             },
             ExprTerm::Json(rel, fk1, vec1) => {
-                let ret: Vec<&T> = match &other {
+                let ret: Vec<&JsonValue> = match &other {
                     ExprTerm::String(s2) => vec1
                         .iter()
                         .filter(|v1| match v1.get_type() {
-                            DocValueType::String(s1) => cmp_fn.cmp_string(s1, s2),
-                            DocValueType::Object(map1) => {
+                            JsonValue::String(s1) => cmp_fn.cmp_string(s1, s2),
+                            JsonValue::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::String(s1)) = map1.get(k) {
+                                    if let Some(JsonValue::String(s1)) = map1.get(k) {
                                         return cmp_fn.cmp_string(s1, s2);
                                     }
                                 }
@@ -55,10 +55,10 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                     ExprTerm::Number(n2) => vec1
                         .iter()
                         .filter(|v1| match v1.get_type() {
-                            DocValueType::Number(n1) => cmp_fn.cmp_f64(to_f64(n1), to_f64(n2)),
-                            DocValueType::Object(map1) => {
+                            JsonValue::Number(n1) => cmp_fn.cmp_f64(to_f64(n1), to_f64(n2)),
+                            JsonValue::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::Number(n1)) = map1.get(k) {
+                                    if let Some(JsonValue::Number(n1)) = map1.get(k) {
                                         return cmp_fn.cmp_f64(to_f64(n1), to_f64(n2));
                                     }
                                 }
@@ -71,12 +71,12 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                     ExprTerm::Bool(b2) => vec1
                         .iter()
                         .filter(|v1| match v1.get_type() {
-                            DocValueType::Bool(b1) => {
+                            JsonValue::Bool(b1) => {
                                 cmp_fn.cmp_bool(b1, *b2)
                             },
-                            DocValueType::Object(map1) => {
+                            JsonValue::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::Bool(b1)) = map1.get(k) {
+                                    if let Some(JsonValue::Bool(b1)) = map1.get(k) {
                                         return cmp_fn.cmp_bool(*b1, *b2);
                                     }
                                 }
@@ -105,7 +105,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                     } else {
                         let mut tmp = Vec::new();
                         for rel_value in rel {
-                            if let DocValueType::Object(map) = rel_value.get_type() {
+                            if let JsonValue::Object(map) = rel_value.get_type() {
                                 for map_value in map.values() {
                                     for result_value in &ret {
                                         if map_value.eq(*result_value) {
@@ -124,7 +124,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         }
     }
 
-    pub fn eq(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn eq(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("eq - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpEq, &CmpEq);
@@ -132,7 +132,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn ne(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn ne(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("ne - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpNe, &CmpNe);
@@ -140,7 +140,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn gt(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn gt(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("gt - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpGt, &CmpLt);
@@ -148,7 +148,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn ge(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn ge(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("ge - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpGe, &CmpLe);
@@ -156,7 +156,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn lt(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn lt(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("lt - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpLt, &CmpGt);
@@ -164,7 +164,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn le(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn le(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("le - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpLe, &CmpGe);
@@ -172,7 +172,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn and(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn and(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("and - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpAnd, &CmpAnd);
@@ -180,7 +180,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
         *ret = Some(tmp);
     }
 
-    pub fn or(&self, other: &Self, ret: &mut Option<ExprTerm<'a, T>>) {
+    pub fn or(&self, other: &Self, ret: &mut Option<ExprTerm<'a>>) {
         debug!("or - {:?} : {:?}", &self, &other);
         let _ = ret.take();
         let tmp = self.cmp(other, &CmpOr, &CmpOr);
@@ -189,13 +189,13 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
     }
 }
 
-impl<'a, T: DocValue> Into<ExprTerm<'a, T>> for &Vec<&'a T> {
-    fn into(self) -> ExprTerm<'a, T> {
+impl<'a> Into<ExprTerm<'a>> for &Vec<&'a JsonValue> {
+    fn into(self) -> ExprTerm<'a> {
         if self.len() == 1 {
             match &self[0].get_type() {
-                DocValueType::Number(v) => return ExprTerm::Number(*v.clone()),
-                DocValueType::String(v) => return ExprTerm::String(*v.clone()),
-                DocValueType::Bool(v) => return ExprTerm::Bool(**v),
+                JsonValue::Number(v) => return ExprTerm::Number(*v.clone()),
+                JsonValue::String(v) => return ExprTerm::String(*v.clone()),
+                JsonValue::Bool(v) => return ExprTerm::Bool(**v),
                 _ => {}
             }
         }
