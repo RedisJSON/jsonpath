@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
-
+use serde_json::Value;
 use {parser, select, select_as_str};
 
 const INVALID_PATH: &str = "invalid path";

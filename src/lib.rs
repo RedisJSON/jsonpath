@@ -130,6 +130,7 @@ extern crate serde;
 extern crate serde_json;
 
 use serde_json::Value;
+use value::{DocValue,DocValueType};
 
 pub use parser::Parser; // TODO private
 pub use select::JsonPathError;
@@ -275,8 +276,8 @@ pub fn selector<'a>(json: &'a Value) -> impl FnMut(&str) -> Result<Vec<&'a Value
 ///
 /// assert_eq!(json, ret);
 /// ```
-pub fn selector_as<T: serde::de::DeserializeOwned>(
-    json: &Value,
+pub fn selector_as<T: serde::de::DeserializeOwned, V: DocValue>(
+    json: &V,
 ) -> impl FnMut(&str) -> Result<Vec<T>, JsonPathError> + '_ {
     let mut selector = Selector::default();
     let _ = selector.value(json);
@@ -308,7 +309,7 @@ pub fn selector_as<T: serde::de::DeserializeOwned>(
 ///     &json!({"name": "친구1", "age": 20})
 /// ]);
 /// ```
-pub fn select<'a>(json: &'a Value, path: &str) -> Result<Vec<&'a Value>, JsonPathError> {
+pub fn select<'a, V: DocValue>(json: &'a V, path: &str) -> Result<Vec<&'a V>, JsonPathError> {
     Selector::default().str_path(path)?.value(json).select()
 }
 
@@ -379,12 +380,12 @@ pub fn select_as_str(json_str: &str, path: &str) -> Result<String, JsonPathError
 ///
 /// assert_eq!(ret[0], person);
 /// ```
-pub fn select_as<T: serde::de::DeserializeOwned>(
+pub fn select_as<T: serde::de::DeserializeOwned, V: DocValue>(
     json_str: &str,
     path: &str,
 ) -> Result<Vec<T>, JsonPathError> {
     let json = serde_json::from_str(json_str).map_err(|e| JsonPathError::Serde(e.to_string()))?;
-    Selector::<Value>::default().str_path(path)?.value(&json).select_as()
+    Selector::<V>::default().str_path(path)?.value(&json).select_as()
 }
 
 /// Delete(= replace with null) the JSON property using the jsonpath.
@@ -419,10 +420,10 @@ pub fn select_as<T: serde::de::DeserializeOwned>(
 ///         {"name": "친구4"}
 /// ]}));
 /// ```
-pub fn delete(value: Value, path: &str) -> Result<Value, JsonPathError> {
+pub fn delete<V: DocValue>(value: V, path: &str) -> Result<V, JsonPathError> {
     let mut selector = SelectorMut::default();
     let value = selector.str_path(path)?.value(value).delete()?;
-    Ok(value.take().unwrap_or(Value::Null))
+    Ok(value.take().unwrap_or(DocValueType::Null))
 }
 
 /// Select JSON properties using a jsonpath and transform the result and then replace it. via closure that implements `FnMut` you can transform the selected results.
@@ -467,13 +468,13 @@ pub fn delete(value: Value, path: &str) -> Result<Value, JsonPathError> {
 ///         {"name": "친구4"}
 /// ]}));
 /// ```
-pub fn replace_with<F>(value: Value, path: &str, fun: &mut F) -> Result<Value, JsonPathError>
+pub fn replace_with<F, V: DocValue>(value: V, path: &str, fun: &mut F) -> Result<V, JsonPathError>
 where
-    F: FnMut(Value) -> Option<Value>,
+    F: FnMut(V) -> Option<V>,
 {
     let mut selector = SelectorMut::default();
     let value = selector.str_path(path)?.value(value).replace_with(fun)?;
-    Ok(value.take().unwrap_or(Value::Null))
+    Ok(value.take().unwrap_or(DocValueType::Null))
 }
 
 /// A pre-compiled expression.

@@ -1,14 +1,14 @@
 use serde_json::{Number};
 use select::cmp::*;
 use select::{FilterKey, to_f64};
-use value::{DocValue, DocValueType, DocMap, DocArr};
+use value::{DocValue, DocValueType, DocMap};
 
 #[derive(Debug, PartialEq)]
 pub(super) enum ExprTerm<'a, T: DocValue> {
     String(String),
     Number(Number),
     Bool(bool),
-    Json(Option<Vec<&'a T>>, Option<FilterKey>, Vec<&'a T>),
+    Json(Option<Vec<&'a DocValueType<T>>>, Option<FilterKey>, Vec<&'a DocValueType<T>>),
 }
 
 impl<'a, T: DocValue> ExprTerm<'a, T> {
@@ -35,15 +35,17 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                 _ => ExprTerm::Bool(cmp_fn.default()),
             },
             ExprTerm::Json(rel, fk1, vec1) => {
-                let ret: Vec<&T> = match &other {
+                let ret: Vec<&DocValueType<T>> = match &other {
                     ExprTerm::String(s2) => vec1
                         .iter()
-                        .filter(|v1| match v1.get_type() {
+                        .filter(|v1| match v1 {
                             DocValueType::String(s1) => cmp_fn.cmp_string(s1, s2),
                             DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::String(s1)) = map1.get(k) {
-                                        return cmp_fn.cmp_string(s1, s2);
+                                    if let Some(V) = map1.get(k) {
+                                        if let DocValueType::String(s1) = V {
+                                            return cmp_fn.cmp_string(s1, s2);
+                                        }
                                     }
                                 }
                                 cmp_fn.default()
@@ -54,12 +56,14 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                         .collect(),
                     ExprTerm::Number(n2) => vec1
                         .iter()
-                        .filter(|v1| match v1.get_type() {
+                        .filter(|v1| match v1 {
                             DocValueType::Number(n1) => cmp_fn.cmp_f64(to_f64(n1), to_f64(n2)),
                             DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::Number(n1)) = map1.get(k) {
-                                        return cmp_fn.cmp_f64(to_f64(n1), to_f64(n2));
+                                    if let Some(V) = map1.get(k) {
+                                        if let DocValueType::Number(n1) = V {
+                                            return cmp_fn.cmp_f64(to_f64(n1), to_f64(n2));
+                                        }
                                     }
                                 }
                                 cmp_fn.default()
@@ -70,14 +74,16 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                         .collect(),
                     ExprTerm::Bool(b2) => vec1
                         .iter()
-                        .filter(|v1| match v1.get_type() {
+                        .filter(|v1| match v1 {
                             DocValueType::Bool(b1) => {
-                                cmp_fn.cmp_bool(b1, *b2)
+                                cmp_fn.cmp_bool(*b1, *b2)
                             },
                             DocValueType::Object(map1) => {
                                 if let Some(FilterKey::String(k)) = fk1 {
-                                    if let Some(DocValueType::Bool(b1)) = map1.get(k) {
-                                        return cmp_fn.cmp_bool(*b1, *b2);
+                                    if let Some(V) = map1.get(k) {
+                                        if let DocValueType::Bool(b1) = V {
+                                            return cmp_fn.cmp_bool(*b1, *b2);
+                                        }
                                     }
                                 }
                                 cmp_fn.default()
@@ -105,7 +111,7 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
                     } else {
                         let mut tmp = Vec::new();
                         for rel_value in rel {
-                            if let DocValueType::Object(map) = rel_value.get_type() {
+                            if let DocValueType::Object(map) = rel_value {
                                 for map_value in map.values() {
                                     for result_value in &ret {
                                         if map_value.eq(*result_value) {
@@ -189,13 +195,13 @@ impl<'a, T: DocValue> ExprTerm<'a, T> {
     }
 }
 
-impl<'a, T: DocValue> Into<ExprTerm<'a, T>> for &Vec<&'a T> {
+impl<'a, T: DocValue> Into<ExprTerm<'a, T>> for &Vec<&'a DocValueType<T>> {
     fn into(self) -> ExprTerm<'a, T> {
         if self.len() == 1 {
-            match &self[0].get_type() {
-                DocValueType::Number(v) => return ExprTerm::Number(*v.clone()),
-                DocValueType::String(v) => return ExprTerm::String(*v.clone()),
-                DocValueType::Bool(v) => return ExprTerm::Bool(**v),
+            match &self[0] {
+                DocValueType::Number(v) => return ExprTerm::Number(v.clone()),
+                DocValueType::String(v) => return ExprTerm::String(v.clone()),
+                DocValueType::Bool(v) => return ExprTerm::Bool(*v),
                 _ => {}
             }
         }

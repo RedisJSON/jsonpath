@@ -4,9 +4,9 @@ use value::{DocValue, DocValueType, DocMap, DocArr};
 pub(super) struct ValueWalker;
 
 impl<'a> ValueWalker {
-    pub fn all_with_num<T: DocValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, index: f64) {
+    pub fn all_with_num<T: DocValue>(vec: &[&'a DocValueType<T>], tmp: &mut Vec<&'a DocValueType<T>>, index: f64) {
         Self::walk(vec, tmp, &|v| if v.is_array() {
-            if let Some(item) = v.get(index as usize) {
+            if let Some(item) = v.get(index as usize) {                
                 Some(vec![item])
             } else {
                 None
@@ -16,14 +16,14 @@ impl<'a> ValueWalker {
         });
     }
 
-    pub fn all_with_str<T: DocValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, key: &str, is_filter: bool) {
+    pub fn all_with_str<T: DocValue>(vec: &[&'a DocValueType<T>], tmp: &mut Vec<&'a DocValueType<T>>, key: &str, is_filter: bool) {
         if is_filter {
-            Self::walk(vec, tmp, &|v| match v.get_type() {
+            Self::walk(vec, tmp, &|v| match v {
                 DocValueType::Object(map) if map.contains_key(key) => Some(vec![v]),
                 _ => None,
             });
         } else {
-            Self::walk(vec, tmp, &|v| match v.get_type() {
+            Self::walk(vec, tmp, &|v| match v {
                 DocValueType::Object(map) => match map.get(key) {
                     Some(v) => Some(vec![v]),
                     _ => None,
@@ -33,8 +33,8 @@ impl<'a> ValueWalker {
         }
     }
 
-    pub fn all<T: DocValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>) {
-        Self::walk(vec, tmp, &|v| match v.get_type() {
+    pub fn all<T: DocValue>(vec: &[&'a DocValueType<T>], tmp: &mut Vec<&'a DocValueType<T>>) {
+        Self::walk(vec, tmp, &|v| match v {
             DocValueType::Array(vec) => {
                 Some(vec.iter().collect())
             },
@@ -49,18 +49,18 @@ impl<'a> ValueWalker {
         });
     }
 
-    fn walk<F, T: DocValue>(vec: &[&'a T], tmp: &mut Vec<&'a T>, fun: &F) where F: Fn(&T) -> Option<Vec<&T>> {
+    fn walk<F, T: DocValue>(vec: &[&'a DocValueType<T>], tmp: &mut Vec<&'a DocValueType<T>>, fun: &F) where F: Fn(&DocValueType<T>) -> Option<Vec<&DocValueType<T>>> {
         for v in vec {
             Self::_walk::<F,T>(v, tmp, fun);
         }
     }
 
-    fn _walk<F, T: DocValue>(v: &'a T, tmp: &mut Vec<&'a T>, fun: &F) where F: Fn(&T) -> Option<Vec<&T>> {
+    fn _walk<F, T: DocValue>(v: &'a DocValueType<T>, tmp: &mut Vec<&'a DocValueType<T>>, fun: &F) where F: Fn(&DocValueType<T>) -> Option<Vec<&DocValueType<T>>> {
         if let Some(mut ret) = fun(v) {
             tmp.append(&mut ret);
         }
 
-        match v.get_type() {
+        match v {
             DocValueType::Array(vec) => {
                 for v in vec {
                     Self::_walk(&v, tmp, fun);
@@ -75,14 +75,14 @@ impl<'a> ValueWalker {
         }
     }
 
-    pub fn walk_dedup<T: DocValue>(v: &'a T,
-                      tmp: &mut Vec<&'a T>,
+    pub fn walk_dedup<T: DocValue>(v: &'a DocValueType<T>,
+                      tmp: &mut Vec<&'a DocValueType<T>>,
                       key: &str,
-                      visited: &mut HashSet<*const T>, ) {
-        match v.get_type() {
+                      visited: &mut HashSet<*const DocValueType<T>>, ) {
+        match v {
             DocValueType::Object(map) => {
                 if map.contains_key(key) {
-                    let ptr = v as *const T;
+                    let ptr = v as *const DocValueType<T>;
                     if !visited.contains(&ptr) {
                         visited.insert(ptr);
                         tmp.push(v)

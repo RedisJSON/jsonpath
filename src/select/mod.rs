@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 use serde_json::{Number};
-use serde_json::map::Entry;
+// use serde_json::map::Entry;
 
 use parser::*;
 use value::{DocValue, DocMap, DocArr, DocValueType};
@@ -86,7 +86,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         self.0.pop()
     }
 
-    fn filter_json_term<F: Fn(&Vec<&'a T>, &mut Vec<&'a T>, &mut HashSet<usize>) -> FilterKey>(
+    fn filter_json_term<F: Fn(&Vec<&'a DocValueType<T>>, &mut Vec<&'a DocValueType<T>>, &mut HashSet<usize>) -> FilterKey>(
         &mut self,
         e: ExprTerm<'a, T>,
         fun: F,
@@ -98,7 +98,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
             let mut not_matched = HashSet::new();
             let filter_key = if let Some(FilterKey::String(key)) = fk {
                 let key_contained = &vec.iter().map(|v| 
-                    match v.get_type() {
+                    match v {
                         DocValueType::Object(map) if map.contains_key(&key) => map.get(&key).unwrap(),
                         _ => v,
                 }).collect();
@@ -124,9 +124,9 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         }
     }
 
-    fn push_json_term<F: Fn(&Vec<&'a T>, &mut Vec<&'a T>, &mut HashSet<usize>) -> FilterKey>(
+    fn push_json_term<F: Fn(&Vec<&'a DocValueType<T>>, &mut Vec<&'a DocValueType<T>>, &mut HashSet<usize>) -> FilterKey>(
         &mut self,
-        current: &Option<Vec<&'a T>>,
+        current: &Option<Vec<&'a DocValueType<T>>>,
         fun: F,
     ) {
         debug!("push_json_term: {:?}", &current);
@@ -139,9 +139,9 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         }
     }
 
-    fn filter<F: Fn(&Vec<&'a T>, &mut Vec<&'a T>, &mut HashSet<usize>) -> FilterKey>(
+    fn filter<F: Fn(&Vec<&'a DocValueType<T>>, &mut Vec<&'a DocValueType<T>>, &mut HashSet<usize>) -> FilterKey>(
         &mut self,
-        current: &Option<Vec<&'a T>>,
+        current: &Option<Vec<&'a DocValueType<T>>>,
         fun: F,
     ) {
         if let Some(peek) = self.0.pop() {
@@ -153,7 +153,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         }
     }
 
-    fn filter_all_with_str(&mut self, current: &Option<Vec<&'a T>>, key: &str) {
+    fn filter_all_with_str(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, key: &str) {
         self.filter(current, |vec, tmp, _| {
             ValueWalker::all_with_str(&vec, tmp, key, true);
             FilterKey::All
@@ -162,11 +162,11 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         debug!("filter_all_with_str : {}, {:?}", key, self.0);
     }
 
-    fn filter_next_with_str(&mut self, current: &Option<Vec<&'a T>>, key: &str) {
+    fn filter_next_with_str(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, key: &str) {
         self.filter(current, |vec, tmp, not_matched| {
             let mut visited = HashSet::new();
             for (idx, v) in vec.iter().enumerate() {
-                match v.get_type() {
+                match v {
                     DocValueType::Object(map) => {
                         if map.contains_key(key) {
                             let ptr = *v as *const T;
@@ -181,7 +181,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
                     DocValueType::Array(vec) => {
                         not_matched.insert(idx);
                         for v in vec {
-                            ValueWalker::walk_dedup(v, tmp, key, &mut visited);
+                            ValueWalker::walk_dedup(&v, tmp, key, &mut visited);
                         }
                     }
                     _ => {
@@ -196,8 +196,8 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         debug!("filter_next_with_str : {}, {:?}", key, self.0);
     }
 
-    fn collect_next_with_num(&mut self, current: &Option<Vec<&'a T>>, index: f64) -> Option<Vec<&'a T>> {
-        fn _collect<'a, T: DocValue>(tmp: &mut Vec<&'a T>, vec: &'a [T], index: f64) {
+    fn collect_next_with_num(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, index: f64) -> Option<Vec<&'a DocValueType<T>>> {
+        fn _collect<'a, T: DocValue>(tmp: &mut Vec<&'a DocValueType<T>>, vec: &'a [DocValueType<T>], index: f64) {
             let index = abs_index(index as isize, vec.len());
             if let Some(v) = vec.get(index) {
                 tmp.push(v);
@@ -207,11 +207,11 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                match c.get_type() {
+                match c {
                     DocValueType::Object(map) => {
                         for k in map.keys() {
                             if let Some(v) = map.get(k) {
-                                if let DocValueType::Array(vec) = v.get_type() {
+                                if let DocValueType::Array(vec) = v {
                                     _collect(&mut tmp, vec, index);
                                 }
                             }
@@ -240,19 +240,19 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         None
     }
 
-    fn collect_next_all(&mut self, current: &Option<Vec<&'a T>>) -> Option<Vec<&'a T>> {
+    fn collect_next_all(&mut self, current: &Option<Vec<&'a DocValueType<T>>>) -> Option<Vec<&'a DocValueType<T>>> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                match c.get_type() {
+                match c {
                     DocValueType::Object(map) => {
                         for (_, v) in map {
-                            tmp.push(v)
+                            tmp.push(&v)
                         }
                     }
                     DocValueType::Array(vec) => {
                         for v in vec {
-                            tmp.push(v);
+                            tmp.push(&v);
                         }
                     }
                     _ => {}
@@ -266,11 +266,11 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         None
     }
 
-    fn collect_next_with_str(&mut self, current: &Option<Vec<&'a T>>, keys: &[String]) -> Option<Vec<&'a T>> {
+    fn collect_next_with_str(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, keys: &[String]) -> Option<Vec<&'a DocValueType<T>>> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             for c in current {
-                if let DocValueType::Object(map) = c.get_type() {
+                if let DocValueType::Object(map) = c {
                     for key in keys {
                         if let Some(v) = map.get(key) {
                             tmp.push(v)
@@ -295,7 +295,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         None
     }
 
-    fn collect_all(&mut self, current: &Option<Vec<&'a T>>) -> Option<Vec<&'a T>> {
+    fn collect_all(&mut self, current: &Option<Vec<&'a DocValueType<T>>>) -> Option<Vec<&'a DocValueType<T>>> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             ValueWalker::all(&current, &mut tmp);
@@ -306,7 +306,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         None
     }
 
-    fn collect_all_with_str(&mut self, current: &Option<Vec<&'a T>>, key: &str) -> Option<Vec<&'a T>> {
+    fn collect_all_with_str(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, key: &str) -> Option<Vec<&'a DocValueType<T>>> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             ValueWalker::all_with_str(&current, &mut tmp, key, false);
@@ -318,7 +318,7 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
         None
     }
 
-    fn collect_all_with_num(&mut self, current: &Option<Vec<&'a T>>, index: f64) -> Option<Vec<&'a T>> {
+    fn collect_all_with_num(&mut self, current: &Option<Vec<&'a DocValueType<T>>>, index: f64) -> Option<Vec<&'a DocValueType<T>>> {
         if let Some(current) = current {
             let mut tmp = Vec::new();
             ValueWalker::all_with_num(&current, &mut tmp, index);
@@ -335,9 +335,9 @@ impl<'a, T: DocValue> FilterTerms<'a, T> {
 pub struct Selector<'a, 'b, T: DocValue> {
     node: Option<Node>,
     node_ref: Option<&'b Node>,
-    value: Option<&'a T>,
+    value: Option<&'a DocValueType<T>>,
     tokens: Vec<ParseToken>,
-    current: Option<Vec<&'a T>>,
+    current: Option<Vec<&'a DocValueType<T>>>,
     selectors: Vec<Selector<'a, 'b, T>>,
     selector_filter: FilterTerms<'a, T>,
 }
@@ -377,7 +377,7 @@ impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
         self
     }
 
-    pub fn value(&mut self, v: &'a T) -> &mut Self {
+    pub fn value(&mut self, v: &'a DocValueType<T>) -> &mut Self {
         self.value = Some(v);
         self
     }
@@ -429,7 +429,7 @@ impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
         }
     }
 
-    pub fn select(&mut self) -> Result<Vec<&'a T>, JsonPathError> {
+    pub fn select(&mut self) -> Result<Vec<&'a DocValueType<T>>, JsonPathError> {
         self._select()?;
 
         match &self.current {
@@ -690,7 +690,7 @@ impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
             let mut tmp = Vec::new();
             if let Some(current) = &self.current {
                 for v in current {
-                    if let DocValueType::Array(vec) = v.get_type() {
+                    if let DocValueType::Array(vec) = v {
                         let from = if let Some(from) = from {
                             abs_index(*from, vec.len())
                         } else {
@@ -729,7 +729,7 @@ impl<'a, 'b, T: DocValue> Selector<'a, 'b, T> {
             let mut tmp = Vec::new();
             if let Some(current) = &self.current {
                 for v in current {
-                    if let DocValueType::Array(vec) = v.get_type() {
+                    if let DocValueType::Array(vec) = v {
                         for i in indices {
                             if let Some(v) = vec.get(abs_index(*i, vec.len())) {
                                 tmp.push(v);
@@ -783,12 +783,12 @@ impl<'a, 'b, T: DocValue> NodeVisitor for Selector<'a, 'b, T> {
 #[derive(Default)]
 pub struct SelectorMut<T: DocValue> {
     path: Option<Node>,
-    value: Option<T>,
+    value: Option<DocValueType<T>>,
 }
 
-fn replace_value<F: FnMut(T) -> Option<T>, T: DocValue>(
+fn replace_value<F: FnMut(DocValueType<T>) -> Option<DocValueType<T>>, T: DocValue>(
     mut tokens: Vec<String>,
-    value: &mut T,
+    value: &mut DocValueType<T>,
     fun: &mut F,
 ) {
     let mut target = value;
@@ -797,11 +797,11 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: DocValue>(
     for (i, token) in tokens.drain(..).enumerate() {
         let target_once = target;
         let is_last = i == last_index;
-        let target_opt = match target_once.get_type() {
-            DocValueType::Object(obj) => {
+        let target_opt = match target_once {
+            DocValueType::Object(ref mut map) => {
                 if is_last {
-                    if let Entry::Occupied(mut e) = obj.entry(token) {
-                        let v = e.insert(DocValueType::Null);
+                    if let Entry::Occupied(mut e) = map.entry(token) {
+                        let v = e.insert( DocValueType::Null);
                         if let Some(res) = fun(v) {
                             e.insert(res);
                         } else {
@@ -812,7 +812,7 @@ fn replace_value<F: FnMut(T) -> Option<T>, T: DocValue>(
                 }
                 map.get_mut(&token)
             }
-            DocValueType::Array(arr) => {
+            DocValueType::Array(ref mut vec) => {
                 if let Ok(x) = token.parse::<usize>() {
                     if is_last {
                         let v = std::mem::replace(&mut vec[x], DocValueType::Null);
@@ -849,21 +849,21 @@ impl <T: DocValue> SelectorMut<T> {
         Ok(self)
     }
 
-    pub fn value(&mut self, value: T) -> &mut Self {
+    pub fn value(&mut self, value: DocValueType<T>) -> &mut Self {
         self.value = Some(value);
         self
     }
 
-    pub fn take(&mut self) -> Option<T> {
+    pub fn take(&mut self) -> Option<DocValueType<T>> {
         self.value.take()
     }
 
-    fn compute_paths(&self, mut result: Vec<&T>) -> Vec<Vec<String>> {
+    fn compute_paths(&self, mut result: Vec<&DocValueType<T>>) -> Vec<Vec<String>> {
         fn _walk<J:DocValue>(
-            origin: &J,
-            target: &mut Vec<&J>,
+            origin: &DocValueType<J>,
+            target: &mut Vec<&DocValueType<J>>,
             tokens: &mut Vec<String>,
-            visited: &mut HashSet<*const J>,
+            visited: &mut HashSet<*const DocValueType<J>>,
             visited_order: &mut Vec<Vec<String>>,
         ) -> bool {
             trace!("{:?}, {:?}", target, tokens);
@@ -883,7 +883,7 @@ impl <T: DocValue> SelectorMut<T> {
                 }
             });
 
-            match origin.get_type() {
+            match origin {
                 DocValueType::Array(vec) => {
                     for (i, v) in vec.iter().enumerate() {
                         tokens.push(i.to_string());
@@ -896,7 +896,7 @@ impl <T: DocValue> SelectorMut<T> {
                 DocValueType::Object(map) => {
                     for (k, v) in map {
                         tokens.push(k.clone());
-                        if _walk(v, target, tokens, visited, visited_order) {
+                        if _walk(&v, target, tokens, visited, visited_order) {
                             return true;
                         }
                         tokens.pop();
@@ -933,7 +933,7 @@ impl <T: DocValue> SelectorMut<T> {
         self.replace_with(&mut |_| None)
     }
 
-    fn select(&self) -> Result<Vec<&T>, JsonPathError> {
+    fn select(&self) -> Result<Vec<&DocValueType<T>>, JsonPathError> {
         if let Some(node) = &self.path {
             let mut selector = Selector::default();
             selector.compiled_path(&node);
@@ -948,7 +948,7 @@ impl <T: DocValue> SelectorMut<T> {
         }
     }
 
-    pub fn replace_with<F: FnMut(T) -> Option<T>>(
+    pub fn replace_with<F: FnMut(DocValueType<T>) -> Option<DocValueType<T>>>(
         &mut self,
         fun: &mut F,
     ) -> Result<&mut Self, JsonPathError> {
