@@ -1,5 +1,4 @@
-use array_tool::vec::{Intersect, Union};
-use serde_json::Value;
+use value::{DocValue, DocValueType};
 
 pub(super) trait Cmp {
     fn cmp_bool(&self, v1: bool, v2: bool) -> bool;
@@ -8,7 +7,7 @@ pub(super) trait Cmp {
 
     fn cmp_string(&self, v1: &str, v2: &str) -> bool;
 
-    fn cmp_json<'a>(&self, v1: &[&'a Value], v2: &[&'a Value]) -> Vec<&'a Value>;
+    fn cmp_json<'a, T: DocValue>(&self, v1: &[&'a DocValueType<T>], v2: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>>;
 
     fn default(&self) -> bool {
         false
@@ -30,7 +29,7 @@ impl Cmp for CmpEq {
         v1 == v2
     }
 
-    fn cmp_json<'a>(&self, v1: &[&'a Value], v2: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, v1: &[&'a DocValueType<T>], v2: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         v1.to_vec().intersect(v2.to_vec())
     }
 }
@@ -50,7 +49,7 @@ impl Cmp for CmpNe {
         v1 != v2
     }
 
-    fn cmp_json<'a>(&self, v1: &[&'a Value], v2: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, v1: &[&'a DocValueType<T>], v2: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         v1.to_vec().intersect_if(v2.to_vec(), |a, b| a != b)
     }
 }
@@ -70,7 +69,7 @@ impl Cmp for CmpGt {
         v1 > v2
     }
 
-    fn cmp_json<'a>(&self, _: &[&'a Value], _: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, _: &[&'a DocValueType<T>], _: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         Vec::new()
     }
 }
@@ -90,7 +89,7 @@ impl Cmp for CmpGe {
         v1 >= v2
     }
 
-    fn cmp_json<'a>(&self, _: &[&'a Value], _: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, _: &[&'a DocValueType<T>], _: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         Vec::new()
     }
 }
@@ -110,7 +109,7 @@ impl Cmp for CmpLt {
         v1 < v2
     }
 
-    fn cmp_json<'a>(&self, _: &[&'a Value], _: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, _: &[&'a DocValueType<T>], _: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         Vec::new()
     }
 }
@@ -130,7 +129,7 @@ impl Cmp for CmpLe {
         v1 <= v2
     }
 
-    fn cmp_json<'a>(&self, _: &[&'a Value], _: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, _: &[&'a DocValueType<T>], _: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         Vec::new()
     }
 }
@@ -150,7 +149,7 @@ impl Cmp for CmpAnd {
         !v1.is_empty() && !v2.is_empty()
     }
 
-    fn cmp_json<'a>(&self, v1: &[&'a Value], v2: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, v1: &[&'a DocValueType<T>], v2: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         v1.to_vec().intersect(v2.to_vec())
     }
 }
@@ -170,7 +169,7 @@ impl Cmp for CmpOr {
         !v1.is_empty() || !v2.is_empty()
     }
 
-    fn cmp_json<'a>(&self, v1: &[&'a Value], v2: &[&'a Value]) -> Vec<&'a Value> {
+    fn cmp_json<'a, T: DocValue>(&self, v1: &[&'a DocValueType<T>], v2: &[&'a DocValueType<T>]) -> Vec<&'a DocValueType<T>> {
         v1.to_vec().union(v2.to_vec())
     }
 }
@@ -298,21 +297,21 @@ mod cmp_inner_tests {
         let right = [&v1, &v2];
         let empty: Vec<&Value> = Vec::new();
 
-        assert_eq!(CmpEq.cmp_json(&left, &right), left.to_vec());
-        assert_eq!(CmpNe.cmp_json(&left, &right), left.to_vec());
-        assert_eq!(CmpGt.cmp_json(&left, &right), empty);
-        assert_eq!(CmpGe.cmp_json(&left, &right), empty);
-        assert_eq!(CmpLt.cmp_json(&left, &right), empty);
-        assert_eq!(CmpLe.cmp_json(&left, &right), empty);
-        assert_eq!(CmpAnd.cmp_json(&left, &right), left.to_vec());
-        assert_eq!(CmpOr.cmp_json(&left, &right), left.to_vec());
+        assert_eq!(CmpEq.cmp_json::<Value>(&left, &right), left.to_vec());
+        assert_eq!(CmpNe.cmp_json::<Value>(&left, &right), left.to_vec());
+        assert_eq!(CmpGt.cmp_json::<Value>(&left, &right), empty);
+        assert_eq!(CmpGe.cmp_json::<Value>(&left, &right), empty);
+        assert_eq!(CmpLt.cmp_json::<Value>(&left, &right), empty);
+        assert_eq!(CmpLe.cmp_json::<Value>(&left, &right), empty);
+        assert_eq!(CmpAnd.cmp_json::<Value>(&left, &right), left.to_vec());
+        assert_eq!(CmpOr.cmp_json::<Value>(&left, &right), left.to_vec());
 
         assert_eq!(
-            CmpEq.cmp_json(&[&Value::Bool(true)], &[&Value::Bool(true)]),
+            CmpEq.cmp_json::<Value>(&[&Value::Bool(true)], &[&Value::Bool(true)]),
             vec![&Value::Bool(true)]
         );
         assert_eq!(
-            CmpEq.cmp_json(&[&Value::Bool(true)], &[&Value::Bool(false)]),
+            CmpEq.cmp_json::<Value>(&[&Value::Bool(true)], &[&Value::Bool(false)]),
             empty
         );
         assert_eq!(

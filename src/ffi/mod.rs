@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
-
+use serde_json::Value;
 use {parser, select, select_as_str};
 
 const INVALID_PATH: &str = "invalid path";
@@ -49,7 +49,7 @@ pub extern "C" fn ffi_select_with_compiled_path(
     let json = serde_json::from_str(json_str)
         .unwrap_or_else(|_| panic!("invalid json string: {}", json_str));
 
-    let mut selector = select::Selector::default();
+    let mut selector = select::Selector::<Value>::default();
     let found = selector.compiled_path(&node).value(&json).select().unwrap();
     std::mem::forget(node);
 
