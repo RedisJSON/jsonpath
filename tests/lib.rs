@@ -57,7 +57,7 @@ fn selector() {
     {
         let json = selector(path).unwrap();
         compare_result(json, target);
-    };
+    }
 
     let json_obj = read_json("./benchmark/data_obj.json");
     let mut selector = jsonpath::selector(&json_obj);
@@ -94,7 +94,7 @@ fn selector_as() {
     {
         let json = selector(path).unwrap();
         assert_eq!(json, target);
-    };
+    }
 
     let json_obj = read_json("./benchmark/data_obj.json");
     let mut selector = jsonpath::selector_as::<Friend>(&json_obj);
@@ -165,8 +165,7 @@ fn test_to_struct() {
         phones: Vec<String>,
     }
 
-    let ret: Vec<Person> = jsonpath::select_as(
-        r#"
+    let json = serde_json::from_str(r#"
     {
         "person":
             {
@@ -178,10 +177,8 @@ fn test_to_struct() {
                 ]
             }
     }
-    "#,
-        "$.person",
-    )
-    .unwrap();
+    "#).unwrap();
+    let ret: Vec<Person> = (jsonpath::selector_as(&json))("$.person").unwrap();
 
     let person = Person {
         name: "Doe John".to_string(),
